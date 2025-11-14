@@ -1,1 +1,423 @@
+:root{
+  --bg:#0b1020;
+  --panel:#131a2b;
+  --text:#e6ebff;
+  --muted:#8a94b0;
+  --accent:#3dd4ff;
+  --accent2:#7bffb0;
+  --error:#ff5470;
+  --radius:18px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box;}
+
+html,body{
+  height:100%;
+}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Ubuntu,sans-serif;
+  overflow:hidden; /* brak scrolla strony – tylko panele mają własny */
+}
+
+.hidden{display:none}
+
+/* ===== Overlay logowania ===== */
+
+.overlay{
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(180deg,rgba(11,16,32,.9),rgba(11,16,32,.96));
+  backdrop-filter:blur(6px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease;
+  z-index:1000;
+}
+
+.overlay.show{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.overlay-panel{
+  width:min(560px,90vw);
+  padding:32px;
+  border-radius:var(--radius);
+  background:rgba(25,34,56,.78);
+  box-shadow:var(--shadow);
+  border:1px solid rgba(61,212,255,.18);
+}
+
+.overlay-panel h1{
+  margin:0 0 8px;
+  font-size:22px;
+  letter-spacing:.6px;
+}
+
+.brand-sub{
+  margin:0 0 18px;
+  color:var(--muted);
+}
+
+.overlay-panel label{
+  display:block;
+  margin:.25rem 0 .35rem;
+}
+
+.overlay-panel input{
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:#0f1527;
+  color:var(--text);
+}
+
+.btn{
+  padding:10px 14px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,#1b2644,#172038);
+  color:var(--text);
+  cursor:pointer;
+  font:inherit;
+}
+
+.btn:hover{
+  border-color:rgba(61,212,255,.45);
+}
+
+.btn.ghost{
+  background:transparent;
+}
+
+.btn-icon{
+  border:none;
+  background:transparent;
+  color:var(--text);
+  font-size:18px;
+  cursor:pointer;
+}
+
+.error{
+  color:var(--error);
+  min-height:1.25rem;
+}
+
+/* ===== App / Topbar ===== */
+
+.app{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+}
+
+.topbar{
+  position:relative;
+  z-index:10;
+  display:flex;
+  gap:16px;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 16px;
+  background:#0e1528;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.logo{
+  display:inline-grid;
+  place-items:center;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, var(--accent2), var(--accent));
+  font-weight:700;
+}
+
+.brand-text{
+  font-weight:700;
+  letter-spacing:.8px;
+}
+
+/* Segmented control (źródło danych) */
+
+.segmented{
+  display:flex;
+  background:#0f1629;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.seg{
+  padding:8px 12px;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+  font:inherit;
+  white-space:nowrap;
+}
+
+.seg.active{
+  background:rgba(61,212,255,.12);
+}
+
+.seg + .seg{
+  border-left:1px solid rgba(255,255,255,.06);
+}
+
+.topbar-group{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.topbar input{
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:#0f1527;
+  color:var(--text);
+  min-width:220px;
+}
+
+.lang .btn{
+  padding:6px 10px;
+}
+
+/* ===== Pasek zakładek widoku ===== */
+
+.views{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:8px 16px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background:#0e1528;
+}
+
+.tab{
+  padding:8px 12px;
+  border-radius:12px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+  font:inherit;
+}
+
+.tab.active{
+  border-color:rgba(61,212,255,.5);
+  background:rgba(61,212,255,.09);
+}
+
+.status-line{
+  margin-left:auto;
+  color:var(--muted);
+  font-size:13px;
+  white-space:nowrap;
+}
+
+/* ===== Widoki bazowe ===== */
+
+.view{
+  /* widoki zakładek – reszta w podsekcjach */
+}
+
+/* ===== Widok Telemetria (mapa + panel) ===== */
+
+.view.telemetry{
+  position:fixed;
+  inset:96px 0 0 0; /* poniżej topbaru + zakładek (~96px) */
+  display:none;
+  grid-template-columns:1fr min(30vw,460px);
+  gap:12px;
+  padding:12px;
+}
+
+.view.telemetry.show{
+  display:grid;
+}
+
+/* mapa ma zajmować całą swoją kolumnę */
+#map{
+  width:100%;
+  height:100%;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+/* panel boczny ma własny scroll */
+#sidepanel{
+  height:100%;
+  overflow:auto;
+  background:var(--panel);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:12px;
+}
+
+/* Na węższych ekranach – mapa nad panelem, nadal bez scrolla body */
+@media (max-width:1020px){
+  .view.telemetry{
+    grid-template-columns:1fr;
+    grid-auto-rows:auto;
+  }
+  #map{
+    height:56vh;
+  }
+}
+
+/* ===== Zakładki sond + karty danych ===== */
+
+.sonde-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.sonde-tab{
+  padding:6px 10px;
+  border-radius:12px;
+  background:#10182c;
+  border:1px solid rgba(255,255,255,.07);
+  cursor:pointer;
+  white-space:nowrap;
+  font-size:13px;
+}
+
+.sonde-tab.active{
+  border-color:rgba(61,212,255,.5);
+  background:rgba(61,212,255,.09);
+}
+
+.sonde-panel{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.card{
+  background:#0f1629;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  padding:10px;
+}
+
+.card .label{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.card .value{
+  font-size:18px;
+}
+
+.card .sub{
+  color:var(--muted);
+  font-size:12px;
+}
+
+/* ===== Widok Dane graficzne =====
+   musi zakrywać wszystko pod spodem (mapa, panel, itd.)
+*/
+
+.view.charts{
+  position:fixed;
+  inset:96px 0 0 0;  /* poniżej topbar + zakładki */
+  display:none;
+  padding:14px;
+  background:#0e1528;
+  z-index:900;
+  overflow:auto;     /* przewijanie tylko wewnątrz widoku wykresów */
+}
+
+.view.charts.show{
+  display:block;
+}
+
+.charts-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+
+@media (min-width:1200px){
+  .charts-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:800px){
+  .charts-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.chart-card{
+  min-height:34vh;
+  display:flex;
+  flex-direction:column;
+}
+
+.card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:6px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.chart-card canvas{
+  width:100%;
+  height:28vh !important; /* stała wysokość, żeby wykresy nie "zjeżdżały" */
+  display:block;
+}
+
+/* Fullscreen pojedynczej karty wykresu */
+.card.fullscreen{
+  position:fixed;
+  inset:0;
+  margin:0;
+  border-radius:0;
+  z-index:9999;
+  background:#0e1528;
+  padding:10px;
+}
+
+.card.fullscreen .card-head{
+  margin-bottom:8px;
+}
+
+.card.fullscreen canvas{
+  height:calc(100vh - 56px) !important;
+}
+
+/* ===== Leaflet kosmetyka ===== */
+
+.leaflet-control{
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));
+}
+
+.leaflet-container{
+  background:#050814;
+}
 /* style.css full content from previous message */
