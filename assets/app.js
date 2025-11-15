@@ -25,7 +25,7 @@
     miniMarker: null
   };
 
-  // ======= i18n (zostawiamy jak było) =======
+  // ======= i18n =======
   const translations = {
     pl: {
       login_title: 'SYSTEM TELEMETRII RADIOSOND METEOROLOGICZNYCH',
@@ -129,7 +129,7 @@
     return null;
   }
 
-  // ======= Login (bez zmian logiki) =======
+  // ======= Login =======
   function initLogin() {
     const overlay = $('#login-overlay');
     if (sessionStorage.getItem('mcpmdr_logged_in') === 'true') {
@@ -267,13 +267,24 @@
       restartFetching();
     });
 
-    // Fullscreen wykresów / mini-mapy
+    // Fullscreen wykresów / mini-mapy – ten sam przycisk włącza/wyłącza
     $$('.fullscreen-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const card = btn.closest('.card');
         card.classList.toggle('fullscreen');
         setTimeout(resizeCharts, 60);
       });
+    });
+
+    // Zamknięcie fullscreen klawiszem ESC
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        const fs = document.querySelector('.card.fullscreen');
+        if (fs) {
+          fs.classList.remove('fullscreen');
+          resizeCharts();
+        }
+      }
     });
 
     // Początkowy widok
@@ -299,7 +310,7 @@
     render();
   }
 
-  // ======= TTGO (na razie szkielet) =======
+  // ======= TTGO (szkielet) =======
   async function fetchTTGO() {
     const url = ($('#ttgo-url').value || '').trim() || 'http://192.168.0.50/sondes.json';
     if (location.protocol === 'https:' && url.startsWith('http:')) {
@@ -314,7 +325,6 @@
       clearTimeout(t);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      // TODO: gdy będziemy znać format TTGO, zmapujemy go na model sondy
       $('#status-line').textContent =
         'TTGO: odebrano dane (' + (Array.isArray(data) ? data.length : 1) + ')';
     } catch (e) {
@@ -390,8 +400,7 @@
       time: colIdx(['datetime', 'time', 'timestamp'])
     };
 
-    // Fallback dla typowego układu CSV z radiosondy.info:
-    // ID;Type;DateTime;Lat;Lon;Alt;Temp;PRES;HUMI;Speed;Course;RSSI;...
+    // Fallback dla typowego układu CSV z radiosondy.info
     if (idx.id === -1 && headers.length > 0) idx.id = 0;
     if (idx.type === -1 && headers.length > 1) idx.type = 1;
     if (idx.time === -1 && headers.length > 2) idx.time = 2;
@@ -405,7 +414,6 @@
     if (idx.windDir === -1 && headers.length > 10) idx.windDir = 10;
     if (idx.rssi === -1 && headers.length > 11) idx.rssi = 11;
 
-    // tylko odrzucamy rekordy bez poprawnego czasu
     for (let li = 1; li < lines.length; li++) {
       const row = lines[li].split(sep);
       const rec = i => {
@@ -451,7 +459,6 @@
       });
     }
 
-    // usuwanie sond >1h po zakończeniu
     const now = Date.now();
     for (const [id, s] of state.sondes) {
       if (!s.time) continue;
@@ -733,7 +740,7 @@
     });
   }
 
-  // ======= Wykresy – grafanowy styl (czas na X + 2 nowe) =======
+  // ======= Wykresy =======
   function ensureChart(id, builder) {
     if (state.charts[id]) return state.charts[id];
     const ctx = document.getElementById(id);
@@ -845,10 +852,10 @@
     const s = state.sondes.get(state.activeId);
     const hist = s ? s.history.slice().sort((a, b) => a.time - b.time) : [];
 
-    // mała mapa w zakładce wykresów
+    // mała mapa
     renderMiniMap(s, hist);
 
-    // 1) Voltages vs Temperature – na razie tylko T (czasowy)
+    // 1) Voltages vs Temperature – T(czas)
     (function () {
       const id = 'chart-volt-temp';
       const chart = ensureChart(id, () => ({
@@ -888,7 +895,7 @@
       chart.update('none');
     })();
 
-    // 2) GNSS Satellites in Use – placeholder (TTGO, na razie puste)
+    // 2) GNSS Satellites in Use – placeholder
     (function () {
       const id = 'chart-gnss';
       const chart = ensureChart(id, () => ({
@@ -919,11 +926,11 @@
         }
       }));
 
-      chart.data.datasets[0].data = []; // TTGO w przyszłości
+      chart.data.datasets[0].data = [];
       chart.update('none');
     })();
 
-    // 3) Payload Environmental Sensor Data – T / RH / p (czasowo)
+    // 3) Payload Environmental Sensor Data – T/RH/p
     (function () {
       const id = 'chart-env';
       const chart = ensureChart(id, () => ({
@@ -987,7 +994,7 @@
       chart.update('none');
     })();
 
-    // 4) Horizontal Velocity – z historii sondy (czasowo)
+    // 4) Horizontal Velocity – czasowo
     (function () {
       const id = 'chart-hvel';
       const chart = ensureChart(id, () => ({
@@ -1139,8 +1146,7 @@
         .filter(h => Number.isFinite(h.rssi) && Number.isFinite(h.temp))
         .map(h => ({ x: h.temp, y: h.rssi, alt: h.alt }));
 
-      // Napięcie – placeholder (na razie brak z radiosondy.info, w TTGO w przyszłości)
-      const uData = []; // gdy pojawi się pole voltage, tu je dodać
+      const uData = []; // napięcie z TTGO w przyszłości
 
       chart.data.datasets[0].data = rssiData;
       chart.data.datasets[1].data = uData;
