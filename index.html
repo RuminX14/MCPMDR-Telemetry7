@@ -85,7 +85,15 @@
     <!-- Widok Dane graficzne: pełnoekranowa warstwa z wykresami -->
     <section id="view-charts" class="view charts" aria-label="Dane graficzne">
       <div class="charts-grid">
-        <!-- 1) Voltages vs Temperature -->
+        <!-- Mała mapa z trajektorią sondy -->
+        <div class="card mini-map-card">
+          <div class="card-head">
+            <span>Trajektoria sondy</span>
+          </div>
+          <div id="mini-map" class="mini-map"></div>
+        </div>
+
+        <!-- 1) Voltages vs Temperature (czasowy) -->
         <div class="card chart-card">
           <div class="card-head">
             <span>Voltages vs Temperature</span>
@@ -120,9 +128,27 @@
           </div>
           <canvas id="chart-hvel"></canvas>
         </div>
+
+        <!-- 5) Gęstość powietrza vs wysokość -->
+        <div class="card chart-card">
+          <div class="card-head">
+            <span>Gęstość powietrza vs wysokość</span>
+            <button class="btn-icon fullscreen-toggle" title="Pełny ekran">⤢</button>
+          </div>
+          <canvas id="chart-density"></canvas>
+        </div>
+
+        <!-- 6) Moc sygnału i napięcie vs temperatura -->
+        <div class="card chart-card">
+          <div class="card-head">
+            <span>Moc sygnału / napięcie vs temperatura</span>
+            <button class="btn-icon fullscreen-toggle" title="Pełny ekran">⤢</button>
+          </div>
+          <canvas id="chart-signal-temp"></canvas>
+        </div>
       </div>
     </section>
-  </div>
+
 
   <!-- Leaflet JS -->
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
