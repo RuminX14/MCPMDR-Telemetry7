@@ -199,11 +199,6 @@ body {
   text-transform: uppercase;
 }
 
-.brand-sub {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
 .topbar-right {
   display: flex;
   align-items: center;
@@ -317,12 +312,16 @@ body {
 
 /* ====== Telemetria ====== */
 #view-telemetry {
-  display: grid;
+  /* nie ustawiamy tu display, steruje nim .view/.show */
   grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   column-gap: 16px;
   height: calc(100vh - 112px); /* topbar + zakładki widoków */
   padding: 8px 16px 16px;
   box-sizing: border-box;
+}
+
+#view-telemetry.view.show {
+  display: grid;
 }
 
 .map {
@@ -414,7 +413,7 @@ body {
 
 /* Mobile / wąskie okno */
 @media (max-width: 1020px) {
-  #view-telemetry {
+  #view-telemetry.view.show {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
   }
@@ -425,6 +424,7 @@ body {
 
 /* ====== Widok wykresów ====== */
 #view-charts {
+  /* sterowanie widocznością przez .view/.show */
   flex: 1 1 auto;
   height: auto;
   padding: 8px 16px 16px;
