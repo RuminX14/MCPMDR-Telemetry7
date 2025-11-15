@@ -334,7 +334,11 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const csv = await res.text();
         parseAndMergeCSV(csv);
-        $('#status-line').textContent = `radiosondy.info: OK (próba ${attempt})`;
+
+        // nowy status: pokazuje liczbę sond z danymi
+        const visibleCount = [...state.sondes.values()].filter(s => s.time).length;
+        $('#status-line').textContent =
+          `radiosondy.info: OK (próba ${attempt}, sondy: ${visibleCount})`;
         return;
       } catch (err) {
         lastErr = err;
@@ -383,8 +387,7 @@
       time: colIdx(['datetime', 'time', 'timestamp'])
     };
 
-    const cutoff = Date.now() - VISIBILITY_WINDOW_SEC * 1000;
-
+    // UWAGA: nie obcinamy tu danych starszych niż 1h – tylko odrzucamy rekordy bez poprawnego czasu.
     for (let li = 1; li < lines.length; li++) {
       const row = lines[li].split(sep);
       const rec = i => {
@@ -401,7 +404,7 @@
       } else {
         tms = Date.parse(tRaw);
       }
-      if (!Number.isFinite(tms) || tms < cutoff) continue;
+      if (!Number.isFinite(tms)) continue;
 
       const lat = parseFloat(rec(idx.lat));
       const lon = parseFloat(rec(idx.lon));
@@ -430,7 +433,7 @@
       });
     }
 
-    // usuwanie sond >1h po zakończeniu
+    // usuwanie sond >1h po zakończeniu – pozostaje
     const now = Date.now();
     for (const [id, s] of state.sondes) {
       if (!s.time) continue;
@@ -887,4 +890,3 @@
     restartFetching();
   });
 })();
-// app.js full content from previous message
