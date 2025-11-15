@@ -18,7 +18,11 @@
     sondes: new Map(),      // id -> sonde object
     activeId: null,
     charts: {},
-    lang: localStorage.getItem('lang') || 'pl'
+    lang: localStorage.getItem('lang') || 'pl',
+    // mini-mapa w zakładce wykresów
+    miniMap: null,
+    miniPolyline: null,
+    miniMarker: null
   };
 
   // ======= i18n (zostawiamy jak było) =======
@@ -150,7 +154,7 @@
     });
   }
 
-  // ======= Mapa =======
+  // ======= Mapa główna =======
   function initMap() {
     const map = L.map('map', { zoomControl: true });
     state.map = map;
@@ -263,7 +267,7 @@
       restartFetching();
     });
 
-    // Fullscreen wykresów
+    // Fullscreen wykresów / mini-mapy
     $$('.fullscreen-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const card = btn.closest('.card');
@@ -491,7 +495,9 @@
         status: 'active',
         history: [],
         marker: null,
-        polyline: null
+        polyline: null,
+        launchMarker: null,
+        burstMarker: null
       });
     }
     return state.sondes.get(id);
@@ -508,7 +514,8 @@
         alt: p.alt,
         temp: p.temp,
         pressure: p.pressure,
-        humidity: p.humidity
+        humidity: p.humidity,
+        rssi: extra.rssi
       });
       if (s.history.length > HISTORY_LIMIT) {
         s.history.splice(0, s.history.length - HISTORY_LIMIT);
@@ -552,6 +559,7 @@
     }
 
     ensureMapObjects(s);
+    updateLaunchBurstMarkers(s);
   }
 
   function ensureMapObjects(s) {
@@ -584,11 +592,56 @@
     s.marker.bindTooltip(label, { direction: 'top', offset: [0, -8] });
   }
 
+  // Launch / Burst na trasie lotu
+  function updateLaunchBurstMarkers(s) {
+    if (!state.map || !s.history.length) return;
+
+    const sorted = s.history.slice().sort((a, b) => a.time - b.time);
+    const launch = sorted[0];
+    let top = null;
+    for (const h of sorted) {
+      if (!Number.isFinite(h.alt)) continue;
+      if (!top || h.alt > top.alt) top = h;
+    }
+
+    if (launch && Number.isFinite(launch.lat) && Number.isFinite(launch.lon)) {
+      const latlng = [launch.lat, launch.lon];
+      if (!s.launchMarker) {
+        s.launchMarker = L.circleMarker(latlng, {
+          radius: 5,
+          color: '#7bffb0',
+          fillColor: '#7bffb0',
+          fillOpacity: 0.95
+        }).addTo(state.map);
+        s.launchMarker.bindTooltip('Launch', { direction: 'top', offset: [0, -6] });
+      } else {
+        s.launchMarker.setLatLng(latlng);
+      }
+    }
+
+    if (top && Number.isFinite(top.lat) && Number.isFinite(top.lon)) {
+      const latlng2 = [top.lat, top.lon];
+      if (!s.burstMarker) {
+        s.burstMarker = L.circleMarker(latlng2, {
+          radius: 5,
+          color: '#ff5470',
+          fillColor: '#ff5470',
+          fillOpacity: 0.95
+        }).addTo(state.map);
+        s.burstMarker.bindTooltip('Burst', { direction: 'top', offset: [0, -6] });
+      } else {
+        s.burstMarker.setLatLng(latlng2);
+      }
+    }
+  }
+
   function removeSonde(id) {
     const s = state.sondes.get(id);
     if (!s) return;
     if (s.marker) s.marker.remove();
     if (s.polyline) s.polyline.remove();
+    if (s.launchMarker) s.launchMarker.remove();
+    if (s.burstMarker) s.burstMarker.remove();
     state.sondes.delete(id);
     if (state.activeId === id) state.activeId = null;
   }
@@ -680,7 +733,7 @@
     });
   }
 
-  // ======= Wykresy – grafanowy styl (czas na X) =======
+  // ======= Wykresy – grafanowy styl (czas na X + 2 nowe) =======
   function ensureChart(id, builder) {
     if (state.charts[id]) return state.charts[id];
     const ctx = document.getElementById(id);
@@ -710,15 +763,92 @@
     };
   }
 
+  function tooltipWithAltitude() {
+    return {
+      callbacks: {
+        label(ctx) {
+          const label = ctx.dataset.label || '';
+          const val = ctx.formattedValue;
+          const raw = ctx.raw;
+          const alt = raw && typeof raw === 'object' && Number.isFinite(raw.alt) ? raw.alt : null;
+          if (alt != null) {
+            return `${label}: ${val} (wys: ${alt.toFixed(0)} m)`;
+          }
+          return `${label}: ${val}`;
+        }
+      }
+    };
+  }
+
   function resizeCharts() {
     Object.values(state.charts).forEach(c => c.resize());
+    if (state.miniMap) {
+      setTimeout(() => state.miniMap.invalidateSize(), 80);
+    }
+  }
+
+  function renderMiniMap(s, hist) {
+    const mapEl = document.getElementById('mini-map');
+    if (!mapEl) return;
+
+    if (!state.miniMap) {
+      state.miniMap = L.map('mini-map', {
+        zoomControl: false,
+        attributionControl: false
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OSM contributors'
+      }).addTo(state.miniMap);
+    }
+
+    if (!s || !hist.length) {
+      state.miniMap.setView([RX.lat, RX.lon], 4);
+      if (state.miniPolyline) state.miniPolyline.setLatLngs([]);
+      if (state.miniMarker) {
+        state.miniMarker.remove();
+        state.miniMarker = null;
+      }
+      return;
+    }
+
+    const path = hist
+      .filter(h => Number.isFinite(h.lat) && Number.isFinite(h.lon))
+      .map(h => [h.lat, h.lon]);
+    if (!path.length) return;
+
+    if (!state.miniPolyline) {
+      state.miniPolyline = L.polyline(path, {
+        color: 'rgba(61,212,255,0.8)',
+        weight: 2
+      }).addTo(state.miniMap);
+    } else {
+      state.miniPolyline.setLatLngs(path);
+    }
+
+    const last = hist[hist.length - 1];
+    if (!state.miniMarker) {
+      state.miniMarker = L.circleMarker([last.lat, last.lon], {
+        radius: 4,
+        color: '#7bffb0',
+        fillColor: '#7bffb0',
+        fillOpacity: 0.95
+      }).addTo(state.miniMap);
+    } else {
+      state.miniMarker.setLatLng([last.lat, last.lon]);
+    }
+
+    const bounds = L.latLngBounds(path);
+    state.miniMap.fitBounds(bounds, { padding: [10, 10] });
   }
 
   function renderCharts() {
     const s = state.sondes.get(state.activeId);
     const hist = s ? s.history.slice().sort((a, b) => a.time - b.time) : [];
 
-    // 1) Voltages vs Temperature – na razie tylko T (brak napięcia z radiosondy)
+    // mała mapa w zakładce wykresów
+    renderMiniMap(s, hist);
+
+    // 1) Voltages vs Temperature – na razie tylko T (czasowy)
     (function () {
       const id = 'chart-volt-temp';
       const chart = ensureChart(id, () => ({
@@ -743,13 +873,16 @@
             x: timeScaleOptions('Czas'),
             yTemp: commonY('Temperatura [°C]')
           },
-          plugins: { legend: { labels: { color: '#e6ebff' } } }
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
         }
       }));
 
       const tempData = hist
         .filter(h => Number.isFinite(h.temp))
-        .map(h => ({ x: h.time.getTime(), y: h.temp }));
+        .map(h => ({ x: h.time.getTime(), y: h.temp, alt: h.alt }));
 
       chart.data.datasets[0].data = tempData;
       chart.update('none');
@@ -779,7 +912,10 @@
             x: timeScaleOptions('Czas'),
             y: commonY('Liczba satelitów')
           },
-          plugins: { legend: { labels: { color: '#e6ebff' } } }
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
         }
       }));
 
@@ -787,7 +923,7 @@
       chart.update('none');
     })();
 
-    // 3) Payload Environmental Sensor Data – T / RH / p
+    // 3) Payload Environmental Sensor Data – T / RH / p (czasowo)
     (function () {
       const id = 'chart-env';
       const chart = ensureChart(id, () => ({
@@ -828,19 +964,22 @@
             yRH: { ...commonY('RH [%]'), position: 'right' },
             yP: { ...commonY('p [hPa]'), position: 'right' }
           },
-          plugins: { legend: { labels: { color: '#e6ebff' } } }
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
         }
       }));
 
       const tempData = hist
         .filter(h => Number.isFinite(h.temp))
-        .map(h => ({ x: h.time.getTime(), y: h.temp }));
+        .map(h => ({ x: h.time.getTime(), y: h.temp, alt: h.alt }));
       const rhData = hist
         .filter(h => Number.isFinite(h.humidity))
-        .map(h => ({ x: h.time.getTime(), y: h.humidity }));
+        .map(h => ({ x: h.time.getTime(), y: h.humidity, alt: h.alt }));
       const pData = hist
         .filter(h => Number.isFinite(h.pressure))
-        .map(h => ({ x: h.time.getTime(), y: h.pressure }));
+        .map(h => ({ x: h.time.getTime(), y: h.pressure, alt: h.alt }));
 
       chart.data.datasets[0].data = tempData;
       chart.data.datasets[1].data = rhData;
@@ -848,7 +987,7 @@
       chart.update('none');
     })();
 
-    // 4) Horizontal Velocity – z historii sondy
+    // 4) Horizontal Velocity – z historii sondy (czasowo)
     (function () {
       const id = 'chart-hvel';
       const chart = ensureChart(id, () => ({
@@ -872,7 +1011,10 @@
             x: timeScaleOptions('Czas'),
             y: commonY('v_h [m/s]')
           },
-          plugins: { legend: { labels: { color: '#e6ebff' } } }
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
         }
       }));
 
@@ -886,12 +1028,122 @@
           const dH = haversine(a.lat, a.lon, b.lat, b.lon);
           const v = dH / dt;
           if (Number.isFinite(v)) {
-            hvData.push({ x: b.time.getTime(), y: v });
+            hvData.push({ x: b.time.getTime(), y: v, alt: b.alt });
           }
         }
       }
 
       chart.data.datasets[0].data = hvData;
+      chart.update('none');
+    })();
+
+    // 5) Gęstość powietrza vs wysokość
+    (function () {
+      const id = 'chart-density';
+      const chart = ensureChart(id, () => ({
+        type: 'scatter',
+        data: {
+          datasets: [
+            {
+              label: 'Gęstość [kg/m³]',
+              data: [],
+              borderWidth: 1.2,
+              pointRadius: 3,
+              showLine: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          parsing: false,
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Gęstość [kg/m³]', color: '#e6ebff' },
+              grid: { color: 'rgba(134,144,176,.35)' },
+              ticks: { color: '#e6ebff' }
+            },
+            y: commonY('Wysokość [m]')
+          },
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
+        }
+      }));
+
+      const R = 287; // J/(kg*K)
+      const densityData = hist
+        .filter(h => Number.isFinite(h.pressure) && Number.isFinite(h.temp) && Number.isFinite(h.alt))
+        .map(h => {
+          const pPa = h.pressure * 100;
+          const Tk = h.temp + 273.15;
+          const rho = pPa / (R * Tk);
+          return { x: rho, y: h.alt, alt: h.alt };
+        });
+
+      chart.data.datasets[0].data = densityData;
+      chart.update('none');
+    })();
+
+    // 6) Moc sygnału i napięcie vs temperatura
+    (function () {
+      const id = 'chart-signal-temp';
+      const chart = ensureChart(id, () => ({
+        type: 'scatter',
+        data: {
+          datasets: [
+            {
+              label: 'RSSI [dB]',
+              yAxisID: 'yRssi',
+              data: [],
+              borderWidth: 1.2,
+              pointRadius: 3,
+              showLine: false
+            },
+            {
+              label: 'Napięcie [V]',
+              yAxisID: 'yU',
+              data: [],
+              borderWidth: 1.2,
+              pointRadius: 3,
+              showLine: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          parsing: false,
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Temperatura [°C]', color: '#e6ebff' },
+              grid: { color: 'rgba(134,144,176,.35)' },
+              ticks: { color: '#e6ebff' }
+            },
+            yRssi: commonY('RSSI [dB]'),
+            yU: { ...commonY('U [V]'), position: 'right' }
+          },
+          plugins: {
+            tooltip: tooltipWithAltitude(),
+            legend: { labels: { color: '#e6ebff' } }
+          }
+        }
+      }));
+
+      const rssiData = hist
+        .filter(h => Number.isFinite(h.rssi) && Number.isFinite(h.temp))
+        .map(h => ({ x: h.temp, y: h.rssi, alt: h.alt }));
+
+      // Napięcie – placeholder (na razie brak z radiosondy.info, w TTGO w przyszłości)
+      const uData = []; // gdy pojawi się pole voltage, tu je dodać
+
+      chart.data.datasets[0].data = rssiData;
+      chart.data.datasets[1].data = uData;
       chart.update('none');
     })();
   }
