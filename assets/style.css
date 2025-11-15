@@ -421,3 +421,135 @@ body{
   background:#050814;
 }
 /* style.css full content from previous message */
+/* ====== Layout wysokości – żeby góra nie była przysłonięta ====== */
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.views {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.view {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Telemetria: mapa + panel danych */
+#view-telemetry {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  column-gap: 16px;
+  height: calc(100vh - 112px); /* topbar + zakładki widoków */
+  padding: 8px 16px 16px;
+  box-sizing: border-box;
+}
+
+#map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#sidepanel {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Mobile / wąskie okno */
+@media (max-width: 1020px) {
+  #view-telemetry {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+  #sidepanel {
+    max-height: 40vh;
+  }
+}
+
+/* Widok wykresów – pełny ekran, nic nie prześwituje */
+#view-charts {
+  height: calc(100vh - 112px);
+  padding: 8px 16px 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.charts-grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-auto-rows: minmax(220px, 1fr);
+  gap: 16px;
+}
+
+/* Karty wykresów / mini-mapy */
+.chart-card,
+.mini-map-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.chart-card .card-head,
+.mini-map-card .card-head {
+  flex: 0 0 auto;
+}
+
+.chart-card canvas,
+.mini-map {
+  flex: 1 1 auto;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Mała mapa w zakładce wykresów */
+.mini-map {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Fullscreen wykresu/mini-mapy – zasłania absolutnie wszystko */
+.card.fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  z-index: 999 !important;
+}
+
+.card.fullscreen .card-head {
+  padding: 8px 16px;
+}
+
+.card.fullscreen canvas,
+.card.fullscreen .mini-map {
+  width: 100% !important;
+  height: calc(100% - 40px) !important;
+}
+
+/* Na wszelki wypadek: mapa nie nachodzi na górę */
+#map,
+#view-telemetry,
+#view-charts {
+  z-index: 1;
+}
+
